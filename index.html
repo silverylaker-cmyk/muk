@@ -24,7 +24,7 @@
 
     <section class="stage">
       <div class="cam-wrap">
-        <video id="video" playsinline muted autoplay hidden></video>
+        <video id="video" playsinline muted autoplay></video>
         <canvas id="canvas"></canvas>
         <div id="overlay" class="overlay">
           <div id="count" class="count" aria-live="assertive"></div>
@@ -60,25 +60,18 @@
             <option value="450">빠르게</option>
           </select>
         </label>
-        <label>인식 정밀도
-          <select id="opt-model">
-            <option value="0">빠름 (저사양 폰)</option>
-            <option value="1" selected>정확</option>
-          </select>
-        </label>
         <div class="help">
           <p><b>규칙</b> 먼저 가위바위보로 공격권을 정합니다. 공격자가 "묵·찌·빠"를 부르며 손을 내고, 두 손이 <b>같으면 공격자 승리</b>, 다르면 가위바위보 승자가 새 공격자가 되어 계속합니다.</p>
           <p><b>인식 팁</b> 손바닥이 카메라를 향하게, 손 전체가 화면 안에 보이도록 해 주세요. 카운트의 마지막 박자에 손 모양을 딱 멈추면 잘 잡힙니다. 찌는 검지+중지 또는 엄지+검지 모두 인식됩니다.</p>
           <p>음성/카메라는 <b>HTTPS</b>에서만 동작합니다. iOS는 무음 스위치가 켜져 있으면 소리가 나지 않습니다.</p>
         </div>
       </details>
+      <div id="debug" class="debug"></div>
       <ul id="log" class="log"></ul>
     </section>
   </main>
 
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/hands.js" crossorigin="anonymous"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils@0.3.1675466124/drawing_utils.js" crossorigin="anonymous"></script>
   <script src="gesture.js"></script>
-  <script src="app.js"></script>
+  <script type="module" src="app.js"></script>
 </body>
 </html>

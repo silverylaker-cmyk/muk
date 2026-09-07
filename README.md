@@ -11,7 +11,7 @@
 ## 구조
 | 파일 | 역할 |
 |---|---|
-| `gesture.js` | MediaPipe Hands 21개 랜드마크 → 묵/찌/빠 분류 + 프레임 다수결 안정화 |
+| `gesture.js` | MediaPipe HandLandmarker(Tasks Vision) 21개 랜드마크 → 묵/찌/빠 분류 + 프레임 다수결 안정화 |
 | `app.js` | 카메라, 인식 루프, 음성 카운트, 게임 규칙 |
 | `index.html`, `style.css` | 모바일 UI |
 | `test/gesture.test.js` | 분류기 단위 테스트 (`npm test`) |

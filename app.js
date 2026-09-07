@@ -1,6 +1,11 @@
 /* 묵찌빠 카메라 게임 — 앱 로직 */
+import { HandLandmarker, FilesetResolver } from 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/vision_bundle.mjs';
+
 (function () {
   'use strict';
+  const TASKS_WASM = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm';
+  const HAND_MODEL = 'https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task';
+  const HAND_CONNECTIONS = [[0,1],[1,2],[2,3],[3,4],[0,5],[5,6],[6,7],[7,8],[5,9],[9,10],[10,11],[11,12],[9,13],[13,14],[14,15],[15,16],[13,17],[17,18],[18,19],[19,20],[0,17]];
   const $ = (id) => document.getElementById(id);
   const video = $('video'), canvas = $('canvas'), ctx = canvas.getContext('2d');
   const ui = {
@@ -8,7 +13,7 @@
     confBar: $('conf-bar'), attackerTag: $('attacker-tag'), log: $('log'),
     scoreUser: $('score-user'), scoreCpu: $('score-cpu'),
     btnCamera: $('btn-camera'), btnGame: $('btn-game'), btnStop: $('btn-stop'),
-    optVoice: $('opt-voice'), optBeep: $('opt-beep'), optSpeed: $('opt-speed'), optModel: $('opt-model'),
+    optVoice: $('opt-voice'), optBeep: $('opt-beep'), optSpeed: $('opt-speed'),
   };
   const badgeUser = document.querySelector('.badge-user'), badgeCpu = document.querySelector('.badge-cpu');
 
@@ -93,54 +98,76 @@
   }
   function clearCount() { ui.count.textContent = ''; ui.count.classList.remove('pop', 'hold'); }
 
-  // ---------- MediaPipe Hands ----------
-  let hands = null, rafId = 0, busy = false;
-  function createHands() {
-    const h = new Hands({ locateFile: (f) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/${f}` });
-    h.setOptions({
-      maxNumHands: 1,
-      modelComplexity: Number(ui.optModel.value),
-      minDetectionConfidence: 0.6,
-      minTrackingConfidence: 0.6,
-      selfieMode: false, // 캔버스는 CSS 로 좌우 반전
-    });
-    h.onResults(onResults);
-    return h;
+  // ---------- MediaPipe HandLandmarker (Tasks Vision) ----------
+  let landmarker = null, rafId = 0, busy = false;
+  const stats = { frames: 0, hands: 0, lastError: '' };
+  const debugEl = $('debug');
+  function setDebug() {
+    if (!debugEl) return;
+    debugEl.textContent = `프레임 ${stats.frames} · 손 감지 ${stats.hands}` + (stats.lastError ? ` · 오류: ${stats.lastError}` : '');
   }
-  ui.optModel.addEventListener('change', () => { if (hands) hands.setOptions({ modelComplexity: Number(ui.optModel.value) }); });
 
-  function onResults(res) {
-    if (canvas.width !== res.image.width || canvas.height !== res.image.height) {
-      canvas.width = res.image.width; canvas.height = res.image.height;
+  async function createLandmarker() {
+    const vision = await FilesetResolver.forVisionTasks(TASKS_WASM);
+    const opts = (delegate) => ({
+      baseOptions: { modelAssetPath: HAND_MODEL, delegate },
+      runningMode: 'VIDEO',
+      numHands: 1,
+      minHandDetectionConfidence: 0.4,
+      minHandPresenceConfidence: 0.4,
+      minTrackingConfidence: 0.4,
+    });
+    try {
+      return await HandLandmarker.createFromOptions(vision, opts('GPU'));
+    } catch (e) {
+      console.warn('GPU delegate 실패, CPU 로 전환', e);
+      log('GPU 가속 불가 → CPU 모드로 인식합니다.');
+      return await HandLandmarker.createFromOptions(vision, opts('CPU'));
     }
-    ctx.save();
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.drawImage(res.image, 0, 0, canvas.width, canvas.height);
+  }
+
+  function drawHand(lm, color) {
+    const W = canvas.width, H = canvas.height;
+    ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(255,255,255,.75)';
+    for (const [a, b] of HAND_CONNECTIONS) {
+      ctx.beginPath(); ctx.moveTo(lm[a].x * W, lm[a].y * H); ctx.lineTo(lm[b].x * W, lm[b].y * H); ctx.stroke();
+    }
+    ctx.fillStyle = color;
+    for (const p of lm) { ctx.beginPath(); ctx.arc(p.x * W, p.y * H, 5, 0, Math.PI * 2); ctx.fill(); }
+  }
+
+  function processFrame() {
+    if (canvas.width !== video.videoWidth || canvas.height !== video.videoHeight) {
+      canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+    }
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
     let result = { label: null, confidence: 0 };
-    if (res.multiHandLandmarks && res.multiHandLandmarks.length) {
-      const lm = res.multiHandLandmarks[0];
-      result = Gesture.classify(lm);
-      const color = result.label ? '#22c55e' : '#f59e0b';
-      if (window.drawConnectors) {
-        drawConnectors(ctx, lm, HAND_CONNECTIONS, { color: 'rgba(255,255,255,.7)', lineWidth: 3 });
-        drawLandmarks(ctx, lm, { color, lineWidth: 1, radius: 4 });
+    stats.frames++;
+    if (landmarker) {
+      try {
+        const res = landmarker.detectForVideo(video, performance.now());
+        if (res && res.landmarks && res.landmarks.length) {
+          const lm = res.landmarks[0];
+          stats.hands++;
+          result = Gesture.classify(lm);
+          drawHand(lm, result.label ? '#22c55e' : '#f59e0b');
+        }
+      } catch (e) {
+        stats.lastError = e.message || String(e);
+        console.error(e);
       }
     }
-    ctx.restore();
     state.latest = result; state.latestAt = performance.now();
     state.stable = smoother.push(result);
     showHand(ui.userHand, state.stable.label);
     ui.confBar.style.width = Math.round(result.confidence * 100) + '%';
     ui.confBar.style.background = result.label ? '#22c55e' : '#ef4444';
+    if (stats.frames % 15 === 0) setDebug();
   }
 
-  async function loop() {
+  function loop() {
     if (!state.cameraOn) return;
-    if (!busy && video.readyState >= 2) {
-      busy = true;
-      try { await hands.send({ image: video }); } catch (e) { console.error(e); }
-      busy = false;
-    }
+    if (video.readyState >= 2 && video.videoWidth > 0) processFrame();
     rafId = requestAnimationFrame(loop);
   }
 
@@ -153,16 +180,25 @@
       });
       video.srcObject = stream;
       await video.play();
-      hands = hands || createHands();
-      await hands.initialize();
       state.cameraOn = true;
-      loop();
+      loop(); // 모델이 준비되기 전에도 카메라 화면은 바로 보여 준다
+      setStatus('손 인식 모델을 내려받는 중… (첫 실행은 몇 초 걸립니다)');
+      try {
+        landmarker = landmarker || await createLandmarker();
+      } catch (e) {
+        console.error(e);
+        stats.lastError = e.message || String(e);
+        setDebug();
+        setStatus('손 인식 모델을 불러오지 못했어요. 네트워크를 확인하고 새로고침해 주세요.');
+        log('모델 로드 실패: ' + stats.lastError);
+        return;
+      }
       // iOS 에서 오디오/TTS 는 사용자 제스처 안에서 한 번 깨워 줘야 한다
       beep(660, 40, 0.01);
       if (synth) { try { synth.cancel(); } catch (e) {} }
       ui.btnCamera.textContent = '📷 카메라 켜짐';
       ui.btnGame.disabled = false;
-      setStatus('연습 모드: 손을 보여 주세요. 인식되면 왼쪽 위에 표시됩니다.');
+      setStatus('연습 모드: 손바닥을 카메라에 보여 주세요. 인식되면 왼쪽 위에 표시됩니다.');
       log('카메라 시작. 손 인식 준비 완료.');
     } catch (e) {
       console.error(e);
