@@ -5,6 +5,7 @@ import { HandLandmarker, FilesetResolver } from 'https://cdn.jsdelivr.net/npm/@m
   'use strict';
   const TASKS_WASM = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm';
   const HAND_MODEL = 'https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task';
+  const APP_VERSION = 'v3';
   const HAND_CONNECTIONS = [[0,1],[1,2],[2,3],[3,4],[0,5],[5,6],[6,7],[7,8],[5,9],[9,10],[10,11],[11,12],[9,13],[13,14],[14,15],[15,16],[13,17],[17,18],[18,19],[19,20],[0,17]];
   const $ = (id) => document.getElementById(id);
   const video = $('video'), canvas = $('canvas'), ctx = canvas.getContext('2d');
@@ -100,15 +101,19 @@ import { HandLandmarker, FilesetResolver } from 'https://cdn.jsdelivr.net/npm/@m
 
   // ---------- MediaPipe HandLandmarker (Tasks Vision) ----------
   let landmarker = null, rafId = 0, busy = false;
-  const stats = { frames: 0, hands: 0, lastError: '' };
+  const stats = { frames: 0, hands: 0, lastError: '', model: '대기' };
   const debugEl = $('debug');
   function setDebug() {
     if (!debugEl) return;
-    debugEl.textContent = `프레임 ${stats.frames} · 손 감지 ${stats.hands}` + (stats.lastError ? ` · 오류: ${stats.lastError}` : '');
+    debugEl.textContent = `${APP_VERSION} · 모델: ${stats.model} · 영상 ${video.videoWidth}x${video.videoHeight} · 프레임 ${stats.frames} · 손 감지 ${stats.hands}`
+      + (stats.lastError ? ` · 오류: ${stats.lastError}` : '');
   }
+  setDebug();
 
+  const withTimeout = (p, ms, what) => Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error(what + ' 시간 초과')), ms))]);
   async function createLandmarker() {
-    const vision = await FilesetResolver.forVisionTasks(TASKS_WASM);
+    stats.model = 'WASM 로딩';  setDebug();
+    const vision = await withTimeout(FilesetResolver.forVisionTasks(TASKS_WASM), 20000, 'WASM 로딩');
     const opts = (delegate) => ({
       baseOptions: { modelAssetPath: HAND_MODEL, delegate },
       runningMode: 'VIDEO',
@@ -118,11 +123,17 @@ import { HandLandmarker, FilesetResolver } from 'https://cdn.jsdelivr.net/npm/@m
       minTrackingConfidence: 0.4,
     });
     try {
-      return await HandLandmarker.createFromOptions(vision, opts('GPU'));
+      stats.model = 'GPU 모델 로딩'; setDebug();
+      const lm = await withTimeout(HandLandmarker.createFromOptions(vision, opts('GPU')), 20000, 'GPU 모델 로딩');
+      stats.model = '준비됨(GPU)';
+      return lm;
     } catch (e) {
       console.warn('GPU delegate 실패, CPU 로 전환', e);
-      log('GPU 가속 불가 → CPU 모드로 인식합니다.');
-      return await HandLandmarker.createFromOptions(vision, opts('CPU'));
+      log('GPU 가속 불가 → CPU 모드로 인식합니다. (' + (e.message || e) + ')');
+      stats.model = 'CPU 모델 로딩'; setDebug();
+      const lm = await withTimeout(HandLandmarker.createFromOptions(vision, opts('CPU')), 30000, 'CPU 모델 로딩');
+      stats.model = '준비됨(CPU)';
+      return lm;
     }
   }
 
@@ -145,7 +156,7 @@ import { HandLandmarker, FilesetResolver } from 'https://cdn.jsdelivr.net/npm/@m
     stats.frames++;
     if (landmarker) {
       try {
-        const res = landmarker.detectForVideo(video, performance.now());
+        const res = landmarker.detectForVideo(canvas, performance.now());
         if (res && res.landmarks && res.landmarks.length) {
           const lm = res.landmarks[0];
           stats.hands++;
@@ -153,6 +164,7 @@ import { HandLandmarker, FilesetResolver } from 'https://cdn.jsdelivr.net/npm/@m
           drawHand(lm, result.label ? '#22c55e' : '#f59e0b');
         }
       } catch (e) {
+        if (!stats.lastError) log('인식 오류: ' + (e.message || e));
         stats.lastError = e.message || String(e);
         console.error(e);
       }
@@ -175,13 +187,15 @@ import { HandLandmarker, FilesetResolver } from 'https://cdn.jsdelivr.net/npm/@m
     ui.btnCamera.disabled = true;
     setStatus('카메라를 준비하는 중…');
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } }, audio: false,
-      });
-      video.srcObject = stream;
-      await video.play();
-      state.cameraOn = true;
-      loop(); // 모델이 준비되기 전에도 카메라 화면은 바로 보여 준다
+      if (!state.cameraOn) {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } }, audio: false,
+        });
+        video.srcObject = stream;
+        await video.play();
+        state.cameraOn = true;
+        loop(); // 모델이 준비되기 전에도 카메라 화면은 바로 보여 준다
+      }
       setStatus('손 인식 모델을 내려받는 중… (첫 실행은 몇 초 걸립니다)');
       try {
         landmarker = landmarker || await createLandmarker();
@@ -189,8 +203,11 @@ import { HandLandmarker, FilesetResolver } from 'https://cdn.jsdelivr.net/npm/@m
         console.error(e);
         stats.lastError = e.message || String(e);
         setDebug();
-        setStatus('손 인식 모델을 불러오지 못했어요. 네트워크를 확인하고 새로고침해 주세요.');
+        stats.model = '실패';
+        setDebug();
+        setStatus('손 인식 모델을 불러오지 못했어요: ' + stats.lastError + ' — 새로고침 후 다시 시도해 주세요.');
         log('모델 로드 실패: ' + stats.lastError);
+        ui.btnCamera.disabled = false; ui.btnCamera.textContent = '🔄 인식 다시 시도';
         return;
       }
       // iOS 에서 오디오/TTS 는 사용자 제스처 안에서 한 번 깨워 줘야 한다
@@ -313,5 +330,6 @@ import { HandLandmarker, FilesetResolver } from 'https://cdn.jsdelivr.net/npm/@m
   ui.btnStop.addEventListener('click', () => { state.abort = true; if (synth) synth.cancel(); });
 
   document.addEventListener('visibilitychange', () => { if (document.hidden && synth) synth.cancel(); });
-  window.addEventListener('error', (e) => log('오류: ' + (e.message || e.error)));
+  window.addEventListener('error', (e) => { stats.lastError = e.message || String(e.error); setDebug(); log('오류: ' + stats.lastError); });
+  window.addEventListener('unhandledrejection', (e) => { stats.lastError = (e.reason && e.reason.message) || String(e.reason); setDebug(); log('오류: ' + stats.lastError); });
 })();

@@ -9,7 +9,7 @@
   <title>묵찌빠 카메라 게임</title>
   <link rel="manifest" href="manifest.webmanifest" />
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E✊%3C/text%3E%3C/svg%3E" />
-  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="style.css?v=3" />
 </head>
 <body>
   <main id="app">
@@ -66,12 +66,13 @@
           <p>음성/카메라는 <b>HTTPS</b>에서만 동작합니다. iOS는 무음 스위치가 켜져 있으면 소리가 나지 않습니다.</p>
         </div>
       </details>
-      <div id="debug" class="debug"></div>
+      <div id="debug" class="debug">v3 · 모델: 대기</div>
       <ul id="log" class="log"></ul>
     </section>
   </main>
 
-  <script src="gesture.js"></script>
-  <script type="module" src="app.js"></script>
+  <script src="gesture.js?v=3"></script>
+  <script type="module" src="app.js?v=3"></script>
+  <script>window.addEventListener("error", function (e) { var d = document.getElementById("debug"); if (d && !d.textContent.includes("오류")) d.textContent += " · 오류: " + (e.message || "스크립트 로드 실패"); });</script>
 </body>
 </html>
