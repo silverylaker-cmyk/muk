@@ -1,0 +1,53 @@
+:root {
+  --bg: #0f172a; --panel: #1e293b; --text: #f1f5f9; --muted: #94a3b8;
+  --accent: #f59e0b; --accent2: #38bdf8; --ok: #22c55e; --bad: #ef4444;
+  --safe-top: env(safe-area-inset-top, 0px); --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", system-ui, sans-serif; }
+#app { display: flex; flex-direction: column; min-height: 100dvh; padding-top: var(--safe-top); padding-bottom: var(--safe-bottom); }
+
+.topbar { display: flex; align-items: center; justify-content: space-between; padding: 10px 16px; }
+.topbar h1 { margin: 0; font-size: 20px; letter-spacing: 2px; color: var(--accent); }
+.score { font-size: 15px; color: var(--muted); }
+.score b { color: var(--text); font-size: 18px; }
+.score .sep { margin: 0 8px; }
+
+.stage { padding: 0 12px; }
+.cam-wrap { position: relative; width: 100%; aspect-ratio: 3 / 4; max-height: 62dvh; margin: 0 auto;
+  background: #000; border-radius: 18px; overflow: hidden; box-shadow: 0 8px 30px rgba(0,0,0,.5); }
+#canvas { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); }
+.overlay { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; pointer-events: none; }
+.count { font-size: clamp(64px, 22vw, 140px); font-weight: 900; color: #fff;
+  text-shadow: 0 4px 24px rgba(0,0,0,.7), 0 0 40px var(--accent); opacity: 0; transform: scale(.6); }
+.count.pop { animation: pop .45s ease-out; }
+.count.hold { opacity: 1; transform: scale(1); }
+@keyframes pop { 0% { opacity: 0; transform: scale(.5);} 30% { opacity: 1; transform: scale(1.15);} 100% { opacity: 1; transform: scale(1);} }
+
+.badge { position: absolute; top: 10px; padding: 8px 10px; border-radius: 12px; background: rgba(15,23,42,.72);
+  backdrop-filter: blur(6px); min-width: 84px; text-align: center; }
+.badge-user { left: 10px; } .badge-cpu { right: 10px; }
+.badge-label { font-size: 11px; color: var(--muted); }
+.badge-hand { font-size: 34px; line-height: 1.2; }
+.conf { height: 4px; background: rgba(255,255,255,.15); border-radius: 2px; margin-top: 4px; overflow: hidden; }
+.conf-bar { height: 100%; width: 0; background: var(--ok); transition: width .12s; }
+.attacker-tag { font-size: 11px; color: var(--accent); min-height: 14px; font-weight: 700; }
+.badge.attacking { outline: 2px solid var(--accent); }
+
+.panel { flex: 1; padding: 12px 16px 8px; }
+.status { margin: 0 0 12px; font-size: 17px; min-height: 24px; text-align: center; }
+.status.win { color: var(--ok); font-weight: 700; } .status.lose { color: var(--bad); font-weight: 700; }
+.buttons { display: flex; gap: 8px; }
+.btn { flex: 1; padding: 14px 8px; font-size: 16px; font-weight: 700; border: 0; border-radius: 12px;
+  background: var(--panel); color: var(--text); cursor: pointer; }
+.btn.primary { background: var(--accent); color: #111; }
+.btn:disabled { opacity: .4; cursor: default; }
+.settings { margin-top: 12px; color: var(--muted); font-size: 14px; }
+.settings summary { cursor: pointer; padding: 6px 0; }
+.settings label { display: flex; align-items: center; gap: 8px; padding: 6px 0; }
+.settings select { margin-left: auto; background: var(--panel); color: var(--text); border: 0; padding: 6px; border-radius: 8px; }
+.help p { margin: 8px 0; line-height: 1.5; }
+.help b { color: var(--text); }
+.log { list-style: none; padding: 0; margin: 12px 0 0; font-size: 13px; color: var(--muted); max-height: 120px; overflow: auto; }
+.log li { padding: 3px 0; border-bottom: 1px solid rgba(255,255,255,.06); }

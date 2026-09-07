@@ -1,0 +1,10 @@
+{
+  "name": "muk-jji-ppa",
+  "version": "1.0.0",
+  "private": true,
+  "description": "휴대폰 카메라 손 인식 묵찌빠 게임 (모바일 웹앱)",
+  "scripts": {
+    "test": "node --test test/gesture.test.js",
+    "start": "npx serve ."
+  }
+}

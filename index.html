@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
+  <meta name="theme-color" content="#0f172a" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <title>묵찌빠 카메라 게임</title>
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E✊%3C/text%3E%3C/svg%3E" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <main id="app">
+    <header class="topbar">
+      <h1>묵찌빠</h1>
+      <div class="score" aria-live="polite">
+        <span>나 <b id="score-user">0</b></span>
+        <span class="sep">:</span>
+        <span><b id="score-cpu">0</b> 컴퓨터</span>
+      </div>
+    </header>
+
+    <section class="stage">
+      <div class="cam-wrap">
+        <video id="video" playsinline muted autoplay hidden></video>
+        <canvas id="canvas"></canvas>
+        <div id="overlay" class="overlay">
+          <div id="count" class="count" aria-live="assertive"></div>
+        </div>
+        <div class="badge badge-user">
+          <div class="badge-label">내 손</div>
+          <div id="user-hand" class="badge-hand">–</div>
+          <div class="conf"><div id="conf-bar" class="conf-bar"></div></div>
+        </div>
+        <div class="badge badge-cpu">
+          <div class="badge-label">컴퓨터</div>
+          <div id="cpu-hand" class="badge-hand">–</div>
+          <div id="attacker-tag" class="attacker-tag"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <p id="status" class="status" aria-live="polite">카메라를 켜고 손 인식을 확인해 보세요.</p>
+      <div class="buttons">
+        <button id="btn-camera" class="btn primary">📷 카메라 켜기</button>
+        <button id="btn-game" class="btn primary" disabled>🎮 게임 시작</button>
+        <button id="btn-stop" class="btn" disabled>⏹ 중단</button>
+      </div>
+      <details class="settings">
+        <summary>설정 · 도움말</summary>
+        <label><input type="checkbox" id="opt-voice" checked /> 음성 카운트(TTS) 사용</label>
+        <label><input type="checkbox" id="opt-beep" checked /> 박자 비프음</label>
+        <label>카운트 속도
+          <select id="opt-speed">
+            <option value="900">느리게</option>
+            <option value="650" selected>보통</option>
+            <option value="450">빠르게</option>
+          </select>
+        </label>
+        <label>인식 정밀도
+          <select id="opt-model">
+            <option value="0">빠름 (저사양 폰)</option>
+            <option value="1" selected>정확</option>
+          </select>
+        </label>
+        <div class="help">
+          <p><b>규칙</b> 먼저 가위바위보로 공격권을 정합니다. 공격자가 "묵·찌·빠"를 부르며 손을 내고, 두 손이 <b>같으면 공격자 승리</b>, 다르면 가위바위보 승자가 새 공격자가 되어 계속합니다.</p>
+          <p><b>인식 팁</b> 손바닥이 카메라를 향하게, 손 전체가 화면 안에 보이도록 해 주세요. 카운트의 마지막 박자에 손 모양을 딱 멈추면 잘 잡힙니다. 찌는 검지+중지 또는 엄지+검지 모두 인식됩니다.</p>
+          <p>음성/카메라는 <b>HTTPS</b>에서만 동작합니다. iOS는 무음 스위치가 켜져 있으면 소리가 나지 않습니다.</p>
+        </div>
+      </details>
+      <ul id="log" class="log"></ul>
+    </section>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/hands.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils@0.3.1675466124/drawing_utils.js" crossorigin="anonymous"></script>
+  <script src="gesture.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
